@@ -1,0 +1,40 @@
+# RSS Checker Configuration File
+# Copy this file to 'rss.conf' and fill in your actual values
+
+[blog]
+# Your blog's main URL
+url = https://example.com/blog
+# RSS feed URL (if different from main URL)
+rss_feed_url = https://example.com/blog/feed
+
+[discord]
+# Discord Bot Token (for future interactive features)
+# Get this from: https://discord.com/developers/applications
+bot_token = YOUR_BOT_TOKEN_HERE
+
+# Discord Channel ID where notifications will be sent
+# Enable Developer Mode in Discord, right-click the channel, and copy ID
+channel_id = 1234567890123456789
+
+# Alternative: Webhook URL (simpler but less features)
+# webhook_url = https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
+
+[notification]
+# Notification threshold in days
+# If blog hasn't been updated for this many days, send a notification
+threshold_days = 7
+
+# Time to check for updates (24-hour format, HH:MM)
+notification_time = 19:00
+
+[ai]
+# Future feature: AI-powered blog suggestions
+# OpenAI API Key (optional, for future use)
+# openai_api_key = YOUR_OPENAI_API_KEY_HERE
+
+[blog_api]
+# Future feature: Post articles directly from Discord
+# WordPress REST API example:
+# api_url = https://example.com/wp-json/wp/v2/posts
+# api_user = your_username
+# api_password = your_application_password
