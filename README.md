@@ -1,240 +1,243 @@
 # RSS Checker
 
-ブログの更新を監視し、一定期間更新がない場合にDiscordで通知するツール
+RSS Checker は、ブログのRSSフィードを監視し、指定期間更新がない場合にDiscordに通知するPythonアプリケーションです。Discord Botとして常時稼働し、スラッシュコマンドとAIによるブログテーマ提案機能を提供します。
 
-## 🎯 概要
+## 機能
 
-RSS Checkerは、ブログのRSSフィードを定期的にチェックし、設定した日数以上更新がない場合にDiscordに通知を送信します。将来的にはDiscord Botとして拡張し、AIによるブログ記事の提案やDiscordからの記事投稿機能も実装予定です。
+### 🤖 Discord Bot機能
+- **スラッシュコマンド対応**
+  - `/blog_check` - ブログの更新状況を今すぐチェック
+  - `/blog_suggest` - AIにブログテーマを提案してもらう
+  - `/blog_status` - BotとRSSチェッカーの状態を表示
+- **自動通知** - 毎日指定時刻にRSSフィードをチェック
+- **@everyone メンション** - しきい値を超えた場合の通知
 
-## ✨ 機能
+### 🧠 AI機能
+- Google Gemini APIによるブログテーマ提案
+- 最近の投稿を考慮した提案
+- 特定テーマに基づいた提案
 
-### 現在の機能
-- ✅ ブログのRSSフィード監視
-- ✅ 設定可能な通知しきい値（日数）
-- ✅ Discord Webhook/Bot経由での通知
-- ✅ 柔軟な設定ファイル管理
-- ✅ スケジュール実行（毎日指定時刻に自動チェック）
-- ✅ 設定テスト機能
+### 📊 RSS監視
+- RSSフィードから最新記事の更新日時を取得
+- 指定したしきい値（日数）以上更新がない場合に通知
+- 複数の日付形式に対応
 
-### 今後の予定機能
-- 🤖 Discord Bot化による対話機能
-- 🧠 Gemini AIによるブログ記事案の提案
-- 📝 Discordから直接ブログ記事を投稿
-- 📊 更新履歴の可視化
+## 必要要件
 
-## 🚀 セットアップ
+- Python 3.7以上
+- pip（Pythonパッケージ管理ツール）
+- Discord Bot Token（Bot機能を使用する場合）
+- Google Gemini API Key（AI機能を使用する場合）
 
-### 1. リポジトリのクローン
+## インストール
 
+1. リポジトリをクローン：
 ```bash
 git clone https://github.com/nekoy3/rss-checker.git
 cd rss-checker
 ```
 
-### 2. Python環境のセットアップ
-
+2. 仮想環境を作成（推奨）：
 ```bash
-python -m venv venv
-source venv/bin/activate  # Windowsの場合: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate  # Linux/Mac
+# または
+venv\Scripts\activate  # Windows
+```
+
+3. 必要なパッケージをインストール：
+```bash
 pip install -r requirements.txt
 ```
 
-### 3. 設定ファイルの作成
+## 設定
 
+1. `rss.conf.example` をコピーして `rss.conf` を作成：
 ```bash
 cp rss.conf.example rss.conf
 ```
 
-`rss.conf`を編集して、以下の情報を設定：
+2. `rss.conf` を編集して、以下の情報を設定：
 
 ```ini
 [blog]
-url = https://your-blog.com
-rss_feed_url = https://your-blog.com/feed
+# ブログのURL（表示用）
+url = https://example.com
+
+# RSSフィードのURL
+rss_feed_url = https://example.com/feed
 
 [discord]
-# Webhook方式（シンプル）
-webhook_url = https://discord.com/api/webhooks/YOUR_WEBHOOK_URL
+# Discord Bot Token（必須）
+bot_token = YOUR_DISCORD_BOT_TOKEN
+channel_id = 1234567890123456789
 
-# または Bot方式（将来の拡張機能用）
-# bot_token = YOUR_BOT_TOKEN
-# channel_id = YOUR_CHANNEL_ID
+# Webhook URL（オプション：main.pyのWebhook方式で使用）
+webhook_url = https://discord.com/api/webhooks/...
 
 [notification]
+# 通知しきい値（日数）
 threshold_days = 7
+
+# 通知時刻（HH:MM形式）
 notification_time = 19:00
 
 [ai]
-# 将来のAI機能用（Google Gemini API）
-# gemini_api_key = YOUR_GEMINI_API_KEY
+# Google Gemini API Key（AI機能を使用する場合）
+gemini_api_key = YOUR_GEMINI_API_KEY
 ```
 
-### 4. Discord Webhookの取得方法
+### Discord Botのセットアップ
 
-1. Discordサーバーの設定を開く
-2. 「連携サービス」→「ウェブフック」を選択
-3. 「新しいウェブフック」をクリック
-4. 名前を設定し、通知先のチャンネルを選択
-5. 「ウェブフックURLをコピー」をクリック
-6. `rss.conf`の`webhook_url`に貼り付け
+1. [Discord Developer Portal](https://discord.com/developers/applications) にアクセス
+2. 新しいApplicationを作成
+3. Botセクションで以下を有効化：
+   - MESSAGE CONTENT INTENT
+4. OAuth2 URLジェネレーターで以下を選択：
+   - Scopes: `bot`, `applications.commands`
+   - Bot Permissions: `Send Messages`, `Embed Links`, `Mention Everyone`
+5. 生成されたURLでBotをサーバーに招待
 
-### 5. (オプション) Gemini APIキーの取得
+### Gemini APIのセットアップ
 
-将来のAI機能用：
+1. [Google AI Studio](https://makersuite.google.com/app/apikey) にアクセス
+2. APIキーを作成
+3. `rss.conf` の `gemini_api_key` に設定
 
-1. [Google AI Studio](https://aistudio.google.com/) にアクセス
-2. 「Get API key」をクリック
-3. APIキーを作成してコピー
-4. `rss.conf`の`gemini_api_key`に貼り付け
+## 使い方
 
-**無料枠:** 1日1500リクエストまで無料！
+### Discord Bot（推奨）
 
-### 6. 設定のテスト
+常時稼働するDiscord Botとして実行：
 
 ```bash
-python main.py --mode test
+python bot.py
 ```
 
-これで以下をテストします：
-- 設定ファイルの読み込み
-- RSSフィードへのアクセス
-- Discord通知の送信
+#### スラッシュコマンド
 
-## 📖 使い方
+Discord内で以下のコマンドが使用できます：
 
-### 基本的な使用方法
+- `/blog_check` - ブログの更新状況を今すぐチェック
+- `/blog_suggest` - AIにブログテーマを提案してもらう（ランダム）
+- `/blog_suggest theme:技術` - 特定テーマでAIに提案してもらう
+- `/blog_status` - BotとRSSチェッカーの状態を表示
+
+### 従来の実行方法
+
+#### 一度だけ実行
 
 ```bash
-# 1回だけチェックを実行
-python main.py
-
-# または明示的に
 python main.py --mode once
+```
 
-# 毎日指定時刻に自動実行（スケジュールモード）
+#### スケジュール実行
+
+指定した時刻に毎日自動チェックを実行：
+
+```bash
 python main.py --mode schedule
+```
 
-# 設定テスト
+#### 設定テスト
+
+設定ファイルと接続をテスト：
+
+```bash
 python main.py --mode test
 ```
 
-### スケジュールモードの詳細
+## systemdサービスとして実行（Linux）
 
-`--mode schedule`で起動すると、`rss.conf`の`notification_time`で設定した時刻に毎日自動的にチェックを実行します。
+1. サービスファイルがすでに `/etc/systemd/system/rss-checker.service` に配置されています
 
+2. サービスを有効化して起動：
 ```bash
-# バックグラウンドで実行（Linux/Mac）
-nohup python main.py --mode schedule > rss-checker.log 2>&1 &
-
-# または systemd サービスとして登録（推奨）
+sudo systemctl enable rss-checker
+sudo systemctl start rss-checker
 ```
 
-### 個別モジュールのテスト
-
+3. ステータス確認：
 ```bash
-# RSSフィードのチェック
-python rss_checker.py https://your-blog.com/feed 7
-
-# Discord通知のテスト（Webhook）
-python discord_notifier.py https://discord.com/api/webhooks/...
-
-# Discord通知のテスト（Bot）
-python discord_notifier.py YOUR_BOT_TOKEN YOUR_CHANNEL_ID
+sudo systemctl status rss-checker
 ```
 
-## 🔧 設定ファイル (rss.conf)
+4. ログ確認：
+```bash
+tail -f ~/rss-checker/rss-checker.log
+# または
+journalctl -u rss-checker -f
+```
 
-### 必須設定
+5. サービスの再起動：
+```bash
+sudo systemctl restart rss-checker
+```
 
-- `[blog]`
-  - `url`: ブログのURL
-  - `rss_feed_url`: RSSフィードのURL（省略可能）
-
-- `[discord]`
-  - `webhook_url`: Discord Webhook URL **または**
-  - `bot_token` + `channel_id`: Discord Bot設定
-
-- `[notification]`
-  - `threshold_days`: 通知しきい値（日数）
-  - `notification_time`: チェック時刻（HH:MM形式）
-
-### オプション設定（将来の機能用）
-
-- `[ai]`
-  - `gemini_api_key`: Google Gemini APIキー（ブログ記事案の生成用）
-
-- `[blog_api]`
-  - `api_url`: ブログのAPI URL（記事投稿用）
-  - `api_user`: APIユーザー名
-  - `api_password`: APIパスワード/トークン
-
-## 🏗️ プロジェクト構造
+## ファイル構成
 
 ```
 rss-checker/
-├── main.py                   # メインスクリプト（実行エントリーポイント）
-├── config.py                 # 設定ファイル読み込みモジュール
-├── rss_checker.py           # RSS監視モジュール
-├── discord_notifier.py      # Discord通知モジュール
-├── rss.conf                 # 設定ファイル（gitignore済み）
-├── rss.conf.example         # 設定ファイルのテンプレート
-├── .gitignore               # Git除外設定
-├── README.md                # このファイル
-└── requirements.txt         # Python依存関係
+├── bot.py              # Discord Botメインファイル（推奨）
+├── main.py             # 従来の実行ファイル
+├── config.py           # 設定読み込みモジュール
+├── rss_checker.py      # RSSフィード監視モジュール
+├── discord_notifier.py # Discord通知モジュール
+├── ai_suggester.py     # AI提案モジュール
+├── rss.conf            # 設定ファイル（要作成）
+├── rss.conf.example    # 設定ファイルの例
+├── requirements.txt    # Python依存パッケージ
+└── README.md           # このファイル
 ```
 
-## 🤔 開発方針について
+## ログ
 
-### Webhook vs Bot
+ログは以下の場所に出力されます：
+- コンソール出力（標準出力）
+- `rss-checker.log`（ファイル出力）
 
-このプロジェクトは将来的な拡張を考慮し、**Discord Bot**として開発することを推奨します。
+ログレベル：
+- INFO: 通常の動作ログ
+- WARNING: 通知送信時など
+- ERROR: エラー発生時
 
-**Bot方式の利点：**
-- `/blog suggest` でAIに記事案を依頼
-- `/blog post` でDiscordから記事投稿
-- `/blog status` で更新状況の確認
-- より柔軟な対話型の機能実装が可能
+## トラブルシューティング
 
-**Webhook方式：**
-- シンプルで導入が簡単
-- 通知のみの用途には十分
-- Bot方式への移行も容易
+### RSSフィードが取得できない
 
-現在はWebhook/Botの両方に対応していますが、将来の対話機能を考えるとBot推奨です。
-
-## �� トラブルシューティング
-
-### RSSフィードが読み取れない
-
-```bash
-# RSSフィードのURLを直接テスト
-python rss_checker.py https://your-blog.com/feed
-```
-
-- URLが正しいか確認
-- RSSフィードが公開されているか確認
+- RSSフィードのURLが正しいか確認
 - ネットワーク接続を確認
+- フィードが有効なXML形式か確認
 
-### Discord通知が届かない
+### Discord通知が送信されない
 
-```bash
-# Discord設定をテスト
-python main.py --mode test
-```
+- Bot Tokenが正しいか確認
+- Channel IDが正しいか確認
+- Botがサーバーに招待されているか確認
+- Botに必要な権限があるか確認（Send Messages, Embed Links, Mention Everyone）
 
-- Webhook URLが正しいか確認
-- チャンネルの権限を確認
-- Botの場合、トークンとチャンネルIDを確認
+### スラッシュコマンドが表示されない
 
-## 📝 ライセンス
+- Botが正常に起動しているか確認（`✓ Synced X slash command(s)` のログを確認）
+- 起動後、コマンドの同期に数分かかることがあります
+- Discord側のキャッシュをクリア（Discordアプリを再起動）
+
+### AI機能が使えない
+
+- `rss.conf` に `gemini_api_key` が設定されているか確認
+- APIキーが有効か確認
+- ネットワーク接続を確認
+- Gemini APIの利用制限に達していないか確認
+
+### 日付の解析エラー
+
+- RSSフィードの日付形式が対応しているか確認
+- 複数の日付形式に対応していますが、必要に応じて `rss_checker.py` の `_extract_date()` メソッドを修正
+
+## ライセンス
 
 MIT License
 
-## 👤 作成者
+## 作者
 
 nekoy3
-
-## 🔗 リンク
-
-- GitHub: https://github.com/nekoy3/rss-checker
-- Google AI Studio: https://aistudio.google.com/
