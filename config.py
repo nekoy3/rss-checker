@@ -83,11 +83,11 @@ class Config:
     
     # AI settings (for future use)
     @property
-    def openai_api_key(self) -> Optional[str]:
-        """Get OpenAI API key (for future AI features)"""
+    def gemini_api_key(self) -> Optional[str]:
+        """Get Google Gemini API key (for future AI features)"""
         try:
-            key = self.config.get("ai", "openai_api_key")
-            return key if key != "YOUR_OPENAI_API_KEY_HERE" else None
+            key = self.config.get("ai", "gemini_api_key")
+            return key if key != "YOUR_GEMINI_API_KEY_HERE" else None
         except (configparser.NoOptionError, configparser.NoSectionError):
             return None
     
@@ -184,5 +184,6 @@ if __name__ == "__main__":
         print(f"  Notification time: {config.notification_time}")
         print(f"  Discord webhook: {'Set' if config.discord_webhook_url else 'Not set'}")
         print(f"  Discord bot token: {'Set' if config.discord_bot_token else 'Not set'}")
+        print(f"  Gemini API key: {'Set' if config.gemini_api_key else 'Not set'}")
     except Exception as e:
         print(f"✗ Configuration error: {e}")

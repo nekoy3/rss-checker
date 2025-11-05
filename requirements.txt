@@ -10,11 +10,8 @@ requests>=2.31.0
 # Scheduling
 schedule>=1.2.0
 
-# Configuration parsing (built-in configparser is used, but listed for reference)
-# configparser is included in Python standard library
-
 # Date/time handling
 python-dateutil>=2.8.2
 
-# Future AI features (optional)
-# openai>=1.0.0
+# AI features - Google Gemini API
+google-generativeai>=0.3.0

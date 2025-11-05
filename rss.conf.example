@@ -29,8 +29,10 @@ notification_time = 19:00
 
 [ai]
 # Future feature: AI-powered blog suggestions
-# OpenAI API Key (optional, for future use)
-# openai_api_key = YOUR_OPENAI_API_KEY_HERE
+# Google Gemini API Key (optional, for future use)
+# Get your API key from: https://aistudio.google.com/
+# Free tier: 1500 requests/day for Gemini 1.5 Flash
+gemini_api_key = YOUR_GEMINI_API_KEY_HERE
 
 [blog_api]
 # Future feature: Post articles directly from Discord
