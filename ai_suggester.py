@@ -1,148 +1,143 @@
+#!/usr/bin/env python3
 """
-AI Blog Suggester Module
-Uses Google Gemini API to suggest blog topics
+AI-powered Blog Topic Suggester using Google Gemini API
 """
 
-import logging
-from typing import Optional
 import google.generativeai as genai
+import logging
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
 class AISuggester:
-    """AI-powered blog topic suggester using Google Gemini"""
+    """Suggests blog topics using Google Gemini AI"""
     
     def __init__(self, api_key: str):
         """
-        Initialize AI suggester
+        Initialize AI suggester with API key
         
         Args:
             api_key: Google Gemini API key
         """
-        self.api_key = api_key
+        if not api_key:
+            raise ValueError("Gemini API key is required")
+        
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-2.5-flash')
+        logger.info("✓ AI Suggester initialized with Gemini 2.5 Flash")
     
-    def suggest_topics(self, count: int = 3, recent_topics: Optional[list] = None) -> str:
+    def suggest_topics(self, count: int = 3, recent_topics: list = None) -> str:
         """
-        Suggest blog topics
+        Generate blog topic suggestions
         
         Args:
-            count: Number of topics to suggest
-            recent_topics: List of recent blog post titles to avoid duplicates
+            count: Number of topics to generate
+            recent_topics: List of recent blog post titles to avoid duplication
             
         Returns:
-            Formatted string with suggested topics
+            Generated blog topic suggestions as formatted text
         """
+        recent_topics_text = ""
+        if recent_topics:
+            recent_topics_text = "、".join(recent_topics)
+        else:
+            recent_topics_text = "なし"
+        
+        prompt = f"""技術ブログのテーマを{count}つ提案する。以下のフォーマットで出力せよ。
+
+【重要】前置き・挨拶文は一切不要。以下のフォーマットのみを出力すること。
+
+-----------------------
+### 1. 記事タイトル
+概要：記事の内容説明。必ず「である」「だ」で終わる文章で記述する。
+-----------------------
+### 2. 記事タイトル
+概要：記事の内容説明。必ず「である」「だ」で終わる文章で記述する。
+-----------------------
+### 3. 記事タイトル
+概要：記事の内容説明。必ず「である」「だ」で終わる文章で記述する。
+-----------------------
+
+【厳格な制約】
+- 「はい」「承知しました」「提案します」などの前置き文は絶対に出力しないこと
+- 最初の文字は必ず「-----------------------」で始めること
+- 記事タイトルは必ず「### 」で始める（Markdown見出しレベル3）
+- 概要は「である」「だ」で終わる断定形のみ使用
+- 「〜します」「〜ます」「〜ください」などの丁寧語・敬語は完全禁止
+- 絵文字（📝など）も不要
+- 「対象読者」などの追加情報も不要
+
+最近の投稿: {recent_topics_text}"""
+        
         try:
             logger.info(f"Requesting {count} blog topic suggestions from Gemini AI...")
-            
-            # Build prompt
-            prompt = f"""あなたはブログ記事のテーマを提案するアシスタントです。
-技術ブログ向けの面白くて実用的なテーマを{count}つ提案してください。
-
-要件:
-- プログラミング、ネットワーク、インフラ、開発ツールなどの技術系トピック
-- 初心者から中級者向けの実践的な内容
-- 具体的で書きやすいテーマ
-- タイトルと簡単な概要（2-3行）を含める
-
-フォーマット:
-📝 [タイトル]
-概要: [2-3行の説明]
-"""
-            
-            if recent_topics:
-                prompt += f"\n\n最近の記事タイトル（これらと重複しないようにしてください）:\n"
-                for topic in recent_topics[:5]:
-                    prompt += f"- {topic}\n"
-            
-            # Generate response
             response = self.model.generate_content(prompt)
-            
-            if response and response.text:
-                logger.info("✓ AI suggestions generated successfully")
-                return response.text
-            else:
-                logger.error("AI response was empty")
-                return "申し訳ありません。提案を生成できませんでした。"
-                
+            logger.info("✓ AI suggestions generated successfully")
+            return response.text
         except Exception as e:
             logger.error(f"Error generating suggestions: {e}")
-            return f"エラーが発生しました: {str(e)}"
+            raise
     
     def suggest_with_theme(self, theme: str) -> str:
         """
-        Suggest blog topics based on a specific theme
+        Generate blog topic suggestions based on a specific theme
         
         Args:
-            theme: Theme or topic area
+            theme: The theme/topic to focus on
             
         Returns:
-            Formatted string with suggested topics
+            Generated blog topic suggestions as formatted text
         """
+        prompt = f"""「{theme}」に関する技術ブログのテーマを3つ提案する。以下のフォーマットで出力せよ。
+
+【重要】前置き・挨拶文は一切不要。以下のフォーマットのみを出力すること。
+
+-----------------------
+### 1. 記事タイトル
+概要：記事の内容説明。必ず「である」「だ」で終わる文章で記述する。
+-----------------------
+### 2. 記事タイトル
+概要：記事の内容説明。必ず「である」「だ」で終わる文章で記述する。
+-----------------------
+### 3. 記事タイトル
+概要：記事の内容説明。必ず「である」「だ」で終わる文章で記述する。
+-----------------------
+
+【厳格な制約】
+- 「はい」「承知しました」「提案します」などの前置き文は絶対に出力しないこと
+- 最初の文字は必ず「-----------------------」で始めること
+- 記事タイトルは必ず「### 」で始める（Markdown見出しレベル3）
+- 概要は「である」「だ」で終わる断定形のみ使用
+- 「〜します」「〜ます」「〜ください」などの丁寧語・敬語は完全禁止
+- 絵文字（📝など）も不要
+- 「対象読者」などの追加情報も不要"""
+        
         try:
             logger.info(f"Requesting suggestions for theme: {theme}")
-            
-            prompt = f"""あなたはブログ記事のテーマを提案するアシスタントです。
-「{theme}」というテーマに関連する技術ブログ記事のアイデアを3つ提案してください。
-
-要件:
-- 具体的で実践的な内容
-- 読者が実際に試せるようなハウツー要素を含める
-- 初心者から中級者向け
-- タイトルと詳細な概要（3-4行）を含める
-
-フォーマット:
-📝 [タイトル]
-概要: [3-4行の説明]
-対象読者: [想定する読者層]
-"""
-            
             response = self.model.generate_content(prompt)
-            
-            if response and response.text:
-                logger.info("✓ Theme-based suggestions generated successfully")
-                return response.text
-            else:
-                logger.error("AI response was empty")
-                return "申し訳ありません。提案を生成できませんでした。"
-                
+            logger.info("✓ Theme-based suggestions generated successfully")
+            return response.text
         except Exception as e:
-            logger.error(f"Error generating theme suggestions: {e}")
-            return f"エラーが発生しました: {str(e)}"
+            logger.error(f"Error generating suggestions: {e}")
+            raise
 
 
 def main():
-    """Test AI suggester"""
+    """Test the AI suggester"""
     import sys
-    from config import load_config
     
-    try:
-        config = load_config()
-        
-        if not config.gemini_api_key:
-            print("✗ Gemini API key not configured")
-            sys.exit(1)
-        
-        suggester = AISuggester(config.gemini_api_key)
-        
-        print("="*60)
-        print("AI Blog Topic Suggester Test")
-        print("="*60)
-        print("\nGenerating suggestions...\n")
-        
-        suggestions = suggester.suggest_topics(count=3)
-        print(suggestions)
-        
-        print("\n" + "="*60)
-        
-    except Exception as e:
-        print(f"✗ Error: {e}")
-        sys.exit(1)
+    # This is just for testing
+    api_key = input("Enter your Gemini API key: ")
+    
+    suggester = AISuggester(api_key)
+    
+    print("\n=== General Suggestions ===")
+    suggestions = suggester.suggest_topics(count=3)
+    print(suggestions)
+    
+    print("\n=== Theme-based Suggestions ===")
+    theme_suggestions = suggester.suggest_with_theme("Python")
+    print(theme_suggestions)
 
 
 if __name__ == "__main__":
