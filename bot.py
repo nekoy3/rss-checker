@@ -4,6 +4,7 @@ RSS Checker Discord Bot
 Monitors blog RSS and provides interactive commands
 """
 
+import re
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -14,6 +15,7 @@ import asyncio
 from config import load_config
 from rss_checker import RSSChecker
 from ai_suggester import AISuggester
+from hatena_blog_api import HatenaBlogAPI
 
 # Set up logging
 logging.basicConfig(
@@ -59,6 +61,89 @@ async def on_ready():
     scheduled_check.start()
     logger.info(f'✓ Scheduled check started (will run at {config.notification_time})')
 
+
+# Store message IDs for suggestion tracking
+suggestion_messages = {}
+
+@bot.event
+async def on_raw_reaction_add(reaction: discord.RawReactionActionEvent):
+    """Handle reactions to blog suggestion messages"""
+    if reaction.user_id == bot.user.id:
+        return
+    
+    if reaction.message_id not in suggestion_messages:
+        return
+    
+    if reaction.emoji.name not in ['1️⃣', '2️⃣', '3️⃣']:
+        return
+    
+    logger.info(f"Reaction {reaction.emoji.name} detected on suggestion message")
+    
+    try:
+        channel = bot.get_channel(reaction.channel_id)
+        message = await channel.fetch_message(reaction.message_id)
+        suggestions_data = suggestion_messages[reaction.message_id]
+        
+        emoji_map = {'1️⃣': 0, '2️⃣': 1, '3️⃣': 2}
+        selected_index = emoji_map[reaction.emoji.name]
+        
+        if selected_index >= len(suggestions_data['titles']):
+            return
+        
+        selected_title = suggestions_data['titles'][selected_index]
+        processing_msg = await channel.send(f"🔄 「{selected_title}」の下書きを生成中...")
+        
+        outline = ai_suggester.generate_article_outline(selected_title)
+        full_article = f"# {selected_title}\n\n{outline}"
+        
+        hatena_api = HatenaBlogAPI(
+            hatena_id=config.hatena_id,
+            blog_id=config.hatena_blog_id,
+            api_key=config.hatena_api_key
+        )
+        
+        result = hatena_api.post_article(
+            title=selected_title,
+            content=full_article,
+            categories=["ブログ", "Tech"],
+            draft=True
+        )
+        
+        await processing_msg.delete()
+        
+        if result['success']:
+            embed = discord.Embed(
+                title="✅ 下書き投稿が完了しました",
+                description=f"記事「{selected_title}」を下書きとして保存しました。",
+                color=discord.Color.green(),
+                timestamp=datetime.utcnow()
+            )
+            
+            embed.add_field(
+                name="📝 記事URL",
+                value=f"[編集画面で確認]({result['article_url']})",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="💡 次のステップ",
+                value="はてなブログの管理画面から下書きを確認し、各セクションの内容を執筆してください。",
+                inline=False
+            )
+            
+            embed.set_footer(text="RSS Checker Bot")
+            await channel.send(embed=embed)
+            logger.info(f"✓ Draft article created: {selected_title}")
+        else:
+            await channel.send(f"❌ エラー: 下書きの作成に失敗しました。\n{result.get('error', 'Unknown error')}")
+            logger.error(f"Failed to create draft: {result}")
+            
+    except Exception as e:
+        logger.error(f"Error handling reaction: {e}", exc_info=True)
+        try:
+            await channel.send(f"❌ エラーが発生しました: {str(e)}")
+        except:
+            pass
 
 @bot.tree.context_menu(name="ブログ更新状況をチェック")
 async def check_blog_context(interaction: discord.Interaction, message: discord.Message):
@@ -225,10 +310,11 @@ async def blog_check(interaction: discord.Interaction):
 @bot.tree.command(name="blog_suggest", description="AIにブログのテーマを提案してもらう")
 async def blog_suggest(interaction: discord.Interaction, theme: str = None):
     """Get AI-powered blog topic suggestions"""
-    await interaction.response.defer()
+    # Respond immediately to avoid timeout
+    await interaction.response.send_message("🤖 AIがブログテーマを考えています...", ephemeral=False)
     
     if not ai_suggester:
-        await interaction.followup.send("❌ AI機能が設定されていません。Gemini APIキーを設定してください。")
+        await interaction.channel.send("❌ AI機能が設定されていません。Gemini APIキーを設定してください。")
         return
     
     try:
@@ -257,11 +343,50 @@ async def blog_suggest(interaction: discord.Interaction, theme: str = None):
         
         embed.set_footer(text="Powered by Google Gemini AI")
         
-        await interaction.followup.send(embed=embed)
+        # Send as a regular message (not interaction response) so reactions work properly
+        message = await interaction.channel.send(embed=embed)
+        logger.info(f"Embed sent as regular message, ID: {message.id}")
+        
+        # Extract titles and add reactions
+        try:
+            # Debug: Log the raw suggestions
+            logger.info(f"Raw suggestions text:\n{suggestions}")
+            
+            titles = []
+            for sline in suggestions.split('\n'):
+                # Try multiple patterns
+                # Pattern 1: "1. **Title**" or "1. Title"
+                match = re.search(r'^\s*\d+\.\s*(?:\*\*)?(.+?)(?:\*\*)?(?:\s*-|$)', sline)
+                if not match:
+                    # Pattern 2: "### 1. Title"
+                    match = re.search(r'^\s*###\s*\d+\.\s*(.+?)(?:\s*$)', sline)
+                if not match:
+                    # Pattern 3: Just "**Title**" after number
+                    match = re.search(r'^\s*\*\*([^*]+)\*\*', sline)
+                
+                if match:
+                    title = match.group(1).strip()
+                    # Skip very short matches (likely not titles)
+                    if len(title) > 5 and not title.startswith('概要'):
+                        titles.append(title)
+            
+            logger.info(f"Extracted {len(titles)} titles: {titles}")
+            
+            if titles:
+                logger.info(f"Adding reactions to message {message.id}")
+                for i, emoji in enumerate(['1️⃣', '2️⃣', '3️⃣'][:len(titles)]):
+                    await message.add_reaction(emoji)
+                    logger.info(f"Added reaction {i+1}: {emoji}")
+                suggestion_messages[message.id] = {'titles': titles, 'timestamp': datetime.utcnow()}
+                logger.info(f"✓ Added {len(titles)} reactions to suggestion message")
+            else:
+                logger.warning(f"No titles extracted from suggestions")
+        except Exception as e:
+            logger.error(f"Error adding reactions: {e}", exc_info=True)
         
     except Exception as e:
-        logger.error(f"Error in blog_suggest command: {e}")
-        await interaction.followup.send(f"❌ エラーが発生しました: {str(e)}")
+        logger.error(f"Error in blog_suggest command: {e}", exc_info=True)
+        await interaction.channel.send(f"❌ エラーが発生しました: {str(e)}")
 
 
 @bot.tree.command(name="blog_status", description="Bot とRSSチェッカーの状態を表示")
@@ -414,6 +539,103 @@ async def scheduled_check():
 async def before_scheduled_check():
     """Wait for bot to be ready"""
     await bot.wait_until_ready()
+
+
+
+@bot.tree.command(name="make_md", description="記事の1セクション分の見出しと本文を生成する")
+@app_commands.describe(detail="このセクションに書きたい内容の説明")
+async def make_md(interaction: discord.Interaction, detail: str):
+    """Generate a section (heading + content) for blog article"""
+    await interaction.response.defer(thinking=True)
+    
+    try:
+        logger.info(f"/make_md command used: {detail[:50]}...")
+        
+        # あなたの記事スタイルを学習したプロンプト
+        prompt = f"""あなたは技術ブログを書くライターである。以下の口調・文体の特徴を厳密に守って記事を書くこと:
+
+【口調の特徴】
+- 敬語は使わない（である調、だ調）
+- カジュアルで砕けた表現（「〜らしい」「〜みたいな」「〜的な」「というわけで」）
+- ユーモアを交えた軽い表現も可（「でございます」など）
+- 余計な前置きや挨拶は一切なし
+- 端的で分かりやすい説明
+
+【文体の例】
+「なんですべての領域を使わないのか？」
+「Geminiさんいわく。」
+「というわけで、ディスク領域を拡張する方法2パターン+αを紹介。」
+「さらなる拡張のためのスペースを確保しようとする　みたいなことが書かれていた。」
+「というわけで、初期設定で実ディスク容量（32GB）の一部を拡張しないと使えない領域とされるわけでございます。」
+
+【重要】
+- 見出し(###で始まる)と本文のみを出力すること
+- 「以下のような〜」「それでは〜」などの前置きは不要
+- コードブロックは使わない（Markdown形式そのままで出力）
+- 見出しは1つ、その下に本文を記述
+
+【要求内容】
+{detail}
+
+上記の内容で、見出し(### )1つと、その下に本文を記述せよ。"""
+
+        response = ai_suggester.model.generate_content(prompt)
+        section_content = response.text.strip()
+        
+        # Markdown形式で返信（コードブロックなし）
+        await interaction.followup.send(section_content)
+        logger.info("✓ Section generated successfully")
+        
+    except Exception as e:
+        logger.error(f"Error in make_md: {e}", exc_info=True)
+        await interaction.followup.send(f"エラーが発生した: {str(e)}")
+
+
+@bot.tree.command(name="make_sentence", description="質問に対して端的に回答する")
+@app_commands.describe(detail="質問内容や説明してほしいこと")
+async def make_sentence(interaction: discord.Interaction, detail: str):
+    """Answer questions in casual style"""
+    await interaction.response.defer(thinking=True)
+    
+    try:
+        logger.info(f"/make_sentence command used: {detail[:50]}...")
+        
+        # あなたの記事スタイルで質問に回答
+        prompt = f"""あなたは技術に詳しいエンジニアである。以下の口調・文体の特徴を厳密に守って質問に回答すること:
+
+【口調の特徴】
+- 敬語は使わない（である調、だ調）
+- カジュアルで砕けた表現（「〜らしい」「〜みたいな」「〜的な」「というわけで」）
+- なるべく端的に、必要最小限の説明で
+- 余計な前置きや挨拶は一切なし
+- コードや技術用語は適切に使う
+
+【文体の例】
+「AIに聞いたらこんな記事を見つけた。」
+「複数のパーティションを1つの論理ボリュームとして扱うものらしい。」
+「てきなことを言ってた。」
+
+【重要】
+- embedは使わない、テキストのみで回答
+- コードブロック(```)は使わない
+- 前置きなしで本題から始める
+- 端的に、必要十分な説明のみ
+
+【質問内容】
+{detail}
+
+上記の質問に対して、端的に回答せよ。"""
+
+        response = ai_suggester.model.generate_content(prompt)
+        answer = response.text.strip()
+        
+        # テキスト形式で返信
+        await interaction.followup.send(answer)
+        logger.info("✓ Answer generated successfully")
+        
+    except Exception as e:
+        logger.error(f"Error in make_sentence: {e}", exc_info=True)
+        await interaction.followup.send(f"エラーが発生した: {str(e)}")
 
 
 def main():

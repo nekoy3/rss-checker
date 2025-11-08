@@ -122,6 +122,56 @@ class AISuggester:
             raise
 
 
+
+    def generate_article_outline(self, title: str) -> str:
+        """
+        Generate detailed article outline with sections and content hints
+        
+        Args:
+            title: Article title
+            
+        Returns:
+            Markdown formatted article outline
+        """
+        prompt = f"""記事タイトル「{title}」の詳細なアウトラインを生成せよ。
+
+【出力フォーマット】
+以下の形式で必ず出力すること。前置きは一切不要。
+
+[:contents]
+
+## セクション1のタイトル
+ここに書くべき内容の概要（2-3文）。具体的な技術要素や手順を示唆する。
+
+## セクション2のタイトル
+ここに書くべき内容の概要（2-3文）。実装方法やコード例の方向性を示す。
+
+## セクション3のタイトル
+ここに書くべき内容の概要（2-3文）。応用例やベストプラクティスに言及する。
+
+## まとめ
+ここに書くべき内容の概要（2-3文）。記事全体の要点と次のアクションを示す。
+
+【厳格な制約】
+- 最初は必ず「[:contents]」で始める（はてなブログの目次記法）
+- 前置き文は絶対に出力しないこと
+- セクションは「## 」で始める（Markdown見出しレベル2）
+- 各セクションの下に、そのセクションで書くべき内容のヒントを2-3文で記述
+- ヒントは具体的で、執筆の指針となる内容にすること
+- 「である調」で記述すること
+- 敬語（です・ます調）は禁止
+- セクション数は3-5個が適切
+- 最後に「まとめ」セクションを必ず含める
+- 技術ブログとして実践的で読者に役立つ構成にすること"""
+        
+        try:
+            logger.info(f"Generating article outline for: {title}")
+            response = self.model.generate_content(prompt)
+            logger.info("✓ Article outline generated successfully")
+            return response.text
+        except Exception as e:
+            logger.error(f"Error generating outline: {e}")
+            raise
 def main():
     """Test the AI suggester"""
     import sys

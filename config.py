@@ -116,6 +116,35 @@ class Config:
         except (configparser.NoOptionError, configparser.NoSectionError):
             return None
     
+
+    # Hatena Blog settings
+    @property
+    def hatena_api_key(self) -> Optional[str]:
+        """Get Hatena Blog API key"""
+        try:
+            return self.config.get("blog", "api_key")
+        except (configparser.NoOptionError, configparser.NoSectionError):
+            return None
+    
+    @property
+    def hatena_id(self) -> Optional[str]:
+        """Extract Hatena ID from blog URL"""
+        import re
+        url = self.blog_url
+        # Extract from https://USERNAME.hateblo.jp/ or https://USERNAME.hatenablog.com/
+        match = re.search(r'https?://([^.]+)\.hateblo\.jp', url)
+        if not match:
+            match = re.search(r'https?://([^.]+)\.hatenablog\.com', url)
+        return match.group(1) if match else None
+    
+    @property
+    def hatena_blog_id(self) -> Optional[str]:
+        """Extract Hatena Blog ID from blog URL"""
+        import re
+        url = self.blog_url
+        # Extract full domain like nekoy3.hateblo.jp
+        match = re.search(r'https?://([^/]+)', url)
+        return match.group(1) if match else None
     def validate(self) -> tuple[bool, list[str]]:
         """
         Validate configuration
