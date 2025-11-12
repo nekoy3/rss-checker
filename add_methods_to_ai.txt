@@ -1,0 +1,49 @@
+
+    def generate_article_review(self, article_text: str) -> str:
+        """AIが記事をレビューして改善提案を返す"""
+        try:
+            logger.info("Generating article review...")
+            prompt = f"""以下のブログ記事をレビューして、改善提案を出してください。
+
+# レビュー観点
+1. **論理展開の正しさ** - 話の流れが自然か、矛盾がないか
+2. **初心者への分かりやすさ** - 専門用語の説明、具体例の使用
+3. **その他** - タイトル、見出し構成
+
+# 記事本文
+{article_text}
+
+# レビュー結果
+上記の観点から、具体的な改善提案を箇条書きで教えてください。
+良い点も1-2個挙げてください。"""
+
+            response = self.model.generate_content(prompt)
+            logger.info("✓ Article review generated")
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"✗ Failed to generate review: {e}")
+            return f"エラー: {str(e)}"
+
+    def generate_tags_from_content(self, title: str, content: str) -> list:
+        """記事の内容からSEOに適したタグを自動生成"""
+        try:
+            logger.info(f"Generating tags for: {title}")
+            content_snippet = content[:2000] if len(content) > 2000 else content
+            
+            prompt = f"""以下のブログ記事に最適なタグを5~10個提案してください。
+
+タグはカンマ区切りで出力。余計な説明不要。
+例: Python, Discord Bot, API連携
+
+# タイトル: {title}
+# 本文（抜粋）:
+{content_snippet}"""
+
+            response = self.model.generate_content(prompt)
+            tags_text = response.text.strip()
+            tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
+            logger.info(f"✓ Generated {len(tags)} tags")
+            return tags[:10]
+        except Exception as e:
+            logger.error(f"✗ Failed to generate tags: {e}")
+            return []

@@ -8,7 +8,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 class AISuggester:
     """Suggests blog topics using Google Gemini AI"""
     
@@ -121,53 +120,6 @@ class AISuggester:
             logger.error(f"Error generating suggestions: {e}")
             raise
 
-
-
-    def generate_article_review(self, article_text: str) -> str:
-        """AIが記事をレビューして改善提案を返す (論理展開と初心者への分かりやすさ重視)"""
-        try:
-            logger.info("Generating article review...")
-            prompt = f"""以下のブログ記事をレビューして、改善提案を出してください。
-
-# レビュー観点
-1. **論理展開の正しさ** - 話の流れが自然か、矛盾がないか、飛躍がないか
-2. **初心者への分かりやすさ** - 専門用語の説明、具体例、段階的な説明
-3. **その他** - タイトル、見出し構成、コード例
-
-# 記事本文
-{article_text}
-
-# レビュー結果
-具体的な改善提案を箇条書きで。良い点も1-2個挙げてください。"""
-
-            response = self.model.generate_content(prompt)
-            logger.info("✓ Article review generated")
-            return response.text.strip()
-        except Exception as e:
-            logger.error(f"✗ Failed: {e}")
-            return f"エラー: {str(e)}"
-
-    def generate_tags_from_content(self, title: str, content: str) -> list:
-        """記事の内容からSEOに適したタグを5-10個自動生成"""
-        try:
-            logger.info(f"Generating tags for: {title}")
-            snippet = content[:2000] if len(content) > 2000 else content
-            
-            prompt = f"""以下のブログ記事に最適なタグを5~10個提案してください。
-カンマ区切りで出力。余計な説明不要。
-例: Python, Discord Bot, API連携
-
-タイトル: {title}
-本文: {snippet}"""
-
-            response = self.model.generate_content(prompt)
-            tags = [t.strip() for t in response.text.strip().split(',') if t.strip()]
-            logger.info(f"✓ Generated {len(tags)} tags")
-            return tags[:10]
-        except Exception as e:
-            logger.error(f"✗ Failed: {e}")
-            return []
-
     def generate_article_outline(self, title: str) -> str:
         """
         Generate detailed article outline with sections and content hints
@@ -234,6 +186,128 @@ def main():
     theme_suggestions = suggester.suggest_with_theme("Python")
     print(theme_suggestions)
 
+    def generate_article_review(self, article_text: str) -> str:
+        """
+        AIが記事をレビューして改善提案を返す
+        論理展開の正しさと初心者への分かりやすさを重点的にチェック
+        
+        Args:
+            article_text: レビューする記事本文
+            
+        Returns:
+            レビュー結果（改善提案）
+        """
+        try:
+            logger.info("Generating article review...")
+            
+            # カスタムプロンプト: 論理展開と分かりやすさを重視
+            prompt = f"""以下のブログ記事をレビューして、改善提案を出してください。
+
+# レビュー観点
+1. **論理展開の正しさ**
+   - 話の流れが自然につながっているか
+   - 前提→説明→結論の流れが矛盾していないか
+   - 因果関係が正しく説明されているか
+   - 飛躍した論理や説明不足がないか
+
+2. **初心者への分かりやすさ**
+   - 専門用語を使う際に適切な説明があるか
+   - 初めてその技術に触れる人でも理解できる表現か
+   - 具体例やたとえ話が効果的に使われているか
+   - 段階的に理解を深められる構成になっているか
+
+3. **その他の改善点**
+   - タイトルの魅力度
+   - 見出し構成の適切さ
+   - コード例の分かりやすさ（もしあれば）
+
+# 記事本文
+{article_text}
+
+# レビュー結果
+上記の観点から、具体的な改善提案を箇条書きで教えてください。
+良い点も1-2個挙げてモチベーションを保ってください。
+改善提案は優先度の高い順に並べてください。"""
+
+            model = genai.GenerativeModel(
+                model_name="gemini-2.0-flash-exp",
+                generation_config={
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "top_k": 40,
+                    "max_output_tokens": 2048,
+                }
+            )
+            
+            response = model.generate_content(prompt)
+            review_result = response.text.strip()
+            
+            logger.info("✓ Article review generated successfully")
+            return review_result
+            
+        except Exception as e:
+            logger.error(f"✗ Failed to generate article review: {e}")
+            return f"エラーが発生しました: {str(e)}"
+
+    def generate_tags_from_content(self, title: str, content: str) -> list:
+        """
+        記事の内容からSEOに適したタグを自動生成
+        
+        Args:
+            title: 記事タイトル
+            content: 記事本文
+            
+        Returns:
+            タグのリスト（5-10個）
+        """
+        try:
+            logger.info(f"Generating tags for article: {title}")
+            
+            # 記事が長すぎる場合は最初の2000文字だけ使用
+            content_snippet = content[:2000] if len(content) > 2000 else content
+            
+            prompt = f"""以下のブログ記事に最適なタグを5~10個提案してください。
+
+# タグ生成の基準
+- はてなブログでよく使われるタグを優先
+- 技術系の記事の場合、具体的な技術名（Python、Discord、APIなど）
+- 記事のテーマを表すキーワード
+- SEO効果が高そうなキーワード
+- 抽象的すぎず、具体的すぎないバランスの良いタグ
+
+# 記事タイトル
+{title}
+
+# 記事本文（抜粋）
+{content_snippet}
+
+# 出力形式
+タグをカンマ区切りで出力してください。余計な説明は不要です。
+例: Python, Discord Bot, API連携, 自動化, プログラミング, 技術解説"""
+
+            model = genai.GenerativeModel(
+                model_name="gemini-2.0-flash-exp",
+                generation_config={
+                    "temperature": 0.5,
+                    "top_p": 0.9,
+                    "top_k": 30,
+                    "max_output_tokens": 200,
+                }
+            )
+            
+            response = model.generate_content(prompt)
+            tags_text = response.text.strip()
+            
+            # カンマ区切りでタグを分割してクリーンアップ
+            tags = [tag.strip() for tag in tags_text.split(',')]
+            tags = [tag for tag in tags if tag]  # 空文字を除外
+            
+            logger.info(f"✓ Generated {len(tags)} tags")
+            return tags[:10]  # 最大10個
+            
+        except Exception as e:
+            logger.error(f"✗ Failed to generate tags: {e}")
+            return []
 
 if __name__ == "__main__":
     main()
